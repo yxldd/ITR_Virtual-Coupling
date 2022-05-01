@@ -8,6 +8,7 @@ cram = cv2.VideoCapture(0)
 
 while True:
     flg, src = cram.read()
+    src=cv2.imread("D:\\Pho\\ca.jpg")
     res = cv2.warpPerspective(src, M, (int(300), int(300)))
     [b, g, r] = cv2.split(res)
     g = cv2.add(g, b)
@@ -17,4 +18,5 @@ while True:
     gray = cv2.cvtColor(res, cv2.COLOR_BGR2GRAY)
     ret, binary = cv2.threshold(gray, 174, 255, cv2.THRESH_BINARY)
     cv2.imshow("H", src)
+    cv2.imwrite("D:\\Pho\\out.jpg",binary)
     cv2.waitKey(1)
