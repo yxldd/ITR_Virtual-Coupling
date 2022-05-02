@@ -1,6 +1,10 @@
 import cv2 as cv
 import numpy as np
 
+Kp = 30
+Ki = 0
+Kd = 0
+
 class PID:
     def __init__(self, goal, kp, ki, kd):
         self.SetPoint = goal
@@ -20,6 +24,15 @@ def PIDCalc(pp, NextPoint):
     pp.LastError = Error
     return pp.Proportion * Error + pp.Integral * pp.SumError + pp.Derivative * DError
 
+def get_turnval(nowservo,pos):
+    val=PIDCalc(nowservo,pos)
+    if val>103
+        return 103
+    if val<67
+        return 67
+    return  val
+
+servo = PID(0, Kp, Ki, Kd)
 
 file = open('D:\\Pho\\dist.txt', 'w')
 src = cv.imread("D:\\Pho\\out.jpg")
@@ -31,10 +44,12 @@ while i >= 0:
     j = 0
     while j < 150:
         if src[i][150 + j][1] <= 10:
-            file.write("y: " + str(i) + "    pos: " + str(150 + j) + " \n")
+            turnval=PIDCalc(servo,j)
+            file.write("y: " + str(i) + "    val: " + str(turnval) + " \n")
             break
         if src[i][150 - j][1] <= 10:
-            file.write("y: " + str(i) + "    pos: " + str(150 - j) + " \n")
+            turnval=PIDCalc(servo,-j)
+            file.write("y: " + str(i) + "    val: " + str(turnval) + " \n")
             break
         j = j + 1
     i = i - 1
