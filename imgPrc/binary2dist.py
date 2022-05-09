@@ -26,9 +26,9 @@ def PIDCalc(pp, NextPoint):
 
 def get_turnval(nowservo,pos):
     val=PIDCalc(nowservo,pos)
-    if val>103
+    if val>103:
         return 103
-    if val<67
+    if val<67:
         return 67
     return  val
 

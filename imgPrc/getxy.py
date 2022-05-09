@@ -2,7 +2,9 @@
 import cv2
 import pandas as pd
 # 导入图片
-img = cv2.imread("D:\\Pho\\p1.jpg")   #代码参数一般是没有问题的，一本如果不能实现在图上标点的话，基本上都是导图图片出错了
+camare=cv2.VideoCapture(1)
+ret,img=camare.read()
+#img = cv2.imread("D:\\Pho\\p1.jpg")   #代码参数一般是没有问题的，一本如果不能实现在图上标点的话，基本上都是导图图片出错了
 # 建立空列表存放像素坐标
 a =[]
 b = []

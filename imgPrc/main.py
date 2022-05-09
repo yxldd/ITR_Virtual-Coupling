@@ -36,14 +36,14 @@ def get_turnval(nowservo, pos):
 
 
 servo = PID(0, Kp, Ki, Kd)
-pts1 = np.float32([[243, 55], [408, 55], [93, 464], [501, 472]])
+pts1 = np.float32([[255, 178], [325, 178], [145, 461], [378, 447]])
 pts2 = np.float32([[0, 0], [300, 0], [0, 300], [300, 300]])
 M = cv2.getPerspectiveTransform(pts1, pts2)
 cram = cv2.VideoCapture(1)
 
 while True:
     flg, src = cram.read()
-    src = cv2.imread("D:\\Pho\\p1.jpg")
+    #src = cv2.imread("D:\\Pho\\p1.jpg")
     res = cv2.warpPerspective(src, M, (int(300), int(300)))
     [b, g, r] = cv2.split(res)
     g = cv2.add(g, b)
@@ -56,24 +56,24 @@ while True:
     # cv2.imshow("H", binary)
 
     i = 299
-    sum = 0;
-    cnt = 5;
+    sum = 0
+    cnt = 5
     while i >= 250:
         j = 0
         while j < 150:
             if binary[i][150 + j] <= 10:
                 sum = sum + (- 2 * j) * (2 * cnt - 1)
                 cnt = cnt - 1
-                cv2.circle(binary, (150+j,i), 1, (255,255,255), 2)
+                cv2.circle(binary, (150 + j, i), 1, (255, 255, 255), 2)
                 break
             if binary[i][150 - j] <= 10:
                 sum = sum + (2 * j) * (2 * cnt - 1)
                 cnt = cnt - 1
-                cv2.circle(binary, (i,150-j), 1, (0,0,255), 4)
+                cv2.circle(binary, (150 - j,i), 1, (255, 255, 255), 2)
                 break
             j = j + 1
         i = i - 10
-    sum=sum/25
+    sum = sum / 25
     turnval = PIDCalc(servo, sum)
     print(turnval)
     cv2.imshow("H", binary)
