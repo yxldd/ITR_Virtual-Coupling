@@ -29,9 +29,8 @@ if __name__=="__main__":
         start = time.time()
         ret, frame = capture.read()
         if ret: # 如果有画面再执行
-            # frame = cv2.flip(frame,0)   #垂直镜像操作
-            frame = cv2.flip(frame,1)   #水平镜像操作   
-    
+            #frame = cv2.flip(frame,0)   #垂直镜像操作
+            #frame = cv2.flip(frame,1)   #水平镜像操作   
             ros_frame.data = np.array(frame).tostring() #图片格式转换
             image_pub.publish(ros_frame) #发布消息
             end = time.time()  
