@@ -1,105 +1,113 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-#将图像信息转化为数组
+#!/usr/bin/env python3
 import rospy
+from std_msgs.msg import Int32
 import cv2
 import numpy as np
 from cv_bridge import CvBridge, CvBridgeError
-from sensor_msgs.msg import Image,RegionOfInterest
-from std_msgs.msg import String
-import imutils
+from sensor_msgs.msg import Image, RegionOfInterest
+
+rospy.init_node('topic_publisher')
+
+Kp = 30
+Ki = 0
+Kd = 0
+
+
+class PID:
+    def __init__(self, goal, kp, ki, kd):
+        self.SetPoint = goal
+        self.Proportion = kp
+        self.Integral = ki
+        self.Derivative = kd
+        self.LastError = 0
+        self.PrevError = 0
+        self.SumError = 0
+
+
+def PIDCalc(pp, NextPoint):
+    Error = pp.SetPoint - NextPoint
+    pp.SumError += Error
+    DError = pp.LastError - pp.PrevError
+    pp.PrevError = pp.LastError
+    pp.LastError = Error
+    return pp.Proportion * Error + pp.Integral * pp.SumError + pp.Derivative * DError
+
+
+def get_turnval(nowservo, pos):
+    val = PIDCalc(nowservo, pos)
+    if val > 103:
+        return 103
+    if val < 67:
+        return 67
+    return val
+
+
+servo = PID(0, Kp, Ki, Kd)
+pts1 = np.float32([[255, 178], [325, 178], [145, 461], [378, 447]])
+pts2 = np.float32([[0, 0], [300, 0], [0, 300], [300, 300]])
+M = cv2.getPerspectiveTransform(pts1, pts2)
+
+def sum_binary(binary, cnt):
+    i = 299
+    sum_value = 0
+    while i >= 250:
+        j = 0
+        while j < 150:
+            if binary[i][150 + j] <= 10:
+                sum_value = sum_value + (- 2 * j) * (2 * cnt - 1)
+                cnt = cnt - 1
+                cv2.circle(binary, (150 + j, i), 1, (255, 255, 255), 2)
+                break
+            if binary[i][150 - j] <= 10:
+                sum_value = sum_value + (2 * j) * (2 * cnt - 1)
+                cnt = cnt - 1
+                cv2.circle(binary, (150 - j, i), 1, (255, 255, 255), 2)
+                break
+            j = j + 1
+        i = i - 10
+    return sum_value
+
 
 class image_converter:
-    def __init__(self):    
-        # 创建cv_bridge，声明图像的发布者和订阅者
-        self.image_pub = rospy.Publisher("/robot1/cv_bridge_image", Image, queue_size=1)
+    def __init__(self):
         self.bridge = CvBridge()
-        self.image_sub = rospy.Subscriber("/robot1/usb_cam/image_raw", Image, self.callback)
-	#self.image_sub = rospy.Subscriber("/camera/color/image_raw", Image, self.callback)
-        self.ROI = RegionOfInterest()
-        self.roi_pub = rospy.Publisher("/robot1/roi", RegionOfInterest, queue_size=100)
-        # 初始化 全局变量
-      
-        self.detect_box = None # 检测的目标区域位置框
-        
+        self.image_sub = rospy.SubScriber("/usb_cam/image_raw", Image, self.callback)
 
-    def callback(self,data):
-        # 使用cv_bridge将ROS的图像数据转换成OpenCV的图像格式
-        try:
-            cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
-        except CvBridgeError as e:
-            print e
-
-        #高斯模糊
-        blurred = cv2.GaussianBlur(cv_image, (11,11), 0)
-        #转换颜色空间到HSV
-        hsv = cv2.cvtColor(blurred,cv2.COLOR_BGR2HSV)
-	#hsv = cv2.cvtColor(blurred,cv2.COLOR_BGR2GRAY)
-        #定义黄色的HSV阀值
-        #lower  = np.array([20,100,100])
-        #upper = np.array([220,255,255])
-	lower  = np.array([0,0,0])
-        upper = np.array([180,255,46])
-        #对图片进行二值化处理
-        mask = cv2.inRange(hsv, lower, upper)
-        cv2.imshow("test", mask)
-        #腐蚀操作
-        mask = cv2.erode(mask,None,iterations = 2)
-        #膨胀操作，先腐蚀后膨胀以消除噪音
-        mask = cv2.dilate(mask,None,iterations=2)
-        #寻找图中轮廓
-        cnts = cv2.findContours(mask.copy(),cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)[-2]
-        #至少存在一个轮廓进行以下操作
-        if len(cnts) >0:
-            c = max(cnts, key=cv2.contourArea)
-            #使用最小外接圆圈出最大的轮廓
-            ((x, y), radius) = cv2.minEnclosingCircle(c)
-            #计算轮廓的矩
-            M = cv2.moments(c)
-            #中心坐标
-            #center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
-            #提取轮廓中的横,纵坐标
-            #cx = int(M["m10"] / M["m00"])
-            #cy = int(M["m10"] / M["m00"])
-            #画出最小外界圆以及圆心
-            if radius >5:
-                cv2.circle(cv_image, (int(x), int(y)), int(radius), (0, 255, 255), 2)
-                cv2.circle(cv_image,(int(x), int(y)) , 5, (0, 0, 255), -1)
-               
-                #将数据保存为全局变量，并转化为/roi的数据格式
-                self.detect_box = (x, y, x+radius/2.0, y+radius/2.0)
-
-        # 显示Opencv格式的图像
-        cv2.imshow("Image window", cv_image)
-        cv2.waitKey(3)
-        self.publish_roi()
-    
+    def callback(self, data):
+        cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+        pub = rospy.Publisher('counter', Int32)
+        src = cv_image
+        res = cv2.warpPerspective(src, M, (int(300), int(300)))
+        [b, g, r] = cv2.split(res)
+        g = cv2.add(g, b)
+        b = g
+        r = cv2.add(r, b)
+        res = cv2.merge([b, g, r])
+        res = cv2.GaussianBlur(res, (3, 3), 0)  # 高斯滤波，适用于对噪点的清除
+        gray = cv2.cvtColor(res, cv2.COLOR_BGR2GRAY)
+        ret, binary = cv2.threshold(gray, 168, 255, cv2.THRESH_BINARY)  # 阈值根据实际情况调整
+        # cv2.imshow("H", binary)
+        sum_value = sum_binary(binary, 5)
+        sum_value = sum_value / 25
+        turnval = PIDCalc(servo, sum_value)
+        print(turnval)
+        pub.publish(turnval)
 
 
- #发布区域
-    def publish_roi(self):
-        roi_box = self.detect_box
-        #roi_box[0] = max(0, roi_box[0])
-        #roi_box[1] = max(0, roi_box[1])    
-        try:
-            ROI = RegionOfInterest()
-            ROI.x_offset = int(roi_box[0])
-            ROI.y_offset = int(roi_box[1])
-            ROI.width = int(roi_box[2])
-            ROI.height = int(roi_box[3])
-            rospy.loginfo(ROI)
-            self.roi_pub.publish(ROI)
-        except:
-            rospy.loginfo("Publishing ROI failed")	        
+def doit():
+    image_converter()
+    rospy.spin()
+    # flg, src = cram.read()
+
+    # cv2.imshow("H", binary)
+    # cv2.waitKey(1)
 
 
-if __name__ == '__main__':
-    try:
-        # 初始化ros节点
-        rospy.init_node("cv_bridge_test")
-        rospy.loginfo("Starting cv_bridge_test node")
-        image_converter()
-        rospy.spin()
-    except KeyboardInterrupt:
-        print "Shutting down cv_bridge_test node."
-cv2.destroyAllWindows()
+if __name__ == "__main__":
+    doit()
+
+# cram = cv2.VideoCapture(0)
+
+'''
+
+'''
