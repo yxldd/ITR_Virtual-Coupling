@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import rospy
+import socket
+import threading
 from std_msgs.msg import Float64
 import cv2
 import numpy as np
@@ -8,10 +10,15 @@ from sensor_msgs.msg import Image, RegionOfInterest
 
 rospy.init_node('topic_publisher')
 
-Kp = 0.3
+Kp = 0.2
 Ki = 0
-Kd = 0.0
+Kd = 0.2
 
+def tcp_link(sock, addr,turnval):
+    print(addr)
+    print('link create, from %s:%s' % addr)
+    sock.send(b'%d\n'%turnval)
+    #print('link close, from %s:%s' % addr)
 
 class PID:
     def __init__(self, goal, kp, ki, kd):
@@ -33,21 +40,26 @@ def PIDCalc(pp, NextPoint):
     return pp.Proportion * Error + pp.Integral * pp.SumError + pp.Derivative * DError
 
 
-def get_turnval(nowservo, pos):
-    val = PIDCalc(nowservo, pos)
+def bh(val):
     if val > 90:
         return 90
     if val < 64:
         return 64
+    val=int(val)
     return val
 
 
 servo = PID(0, Kp, Ki, Kd)
 #pts1 = np.float32([[255, 178], [325, 178], [145, 461], [378, 447]])
-pts1 = np.float32([[161, 199], [517, 197], [0,467], [629,455]])
+pts1 = np.float32([[229, 165], [458, 176], [9,450], [635,453]])
 pts2 = np.float32([[0, 0], [300, 0], [0, 300], [300, 300]])
 M = cv2.getPerspectiveTransform(pts1, pts2)
 
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+s.bind(('192.168.3.185', 11411))
+
+s.listen(5)
 
 # cram = cv2.VideoCapture(0)
 
@@ -91,7 +103,7 @@ class image_converter:
         cv2.imwrite("J.jpg",res)
         res = cv2.GaussianBlur(res, (3, 3), 0)  # 高斯滤波，适用于对噪点的清除
         gray = cv2.cvtColor(res, cv2.COLOR_BGR2GRAY)
-        ret, binary = cv2.threshold(gray, 180, 255, cv2.THRESH_BINARY)  # 阈值根据实际情况调整
+        ret, binary = cv2.threshold(gray, 190, 255, cv2.THRESH_BINARY)  # 阈值根据实际情况调整
         #cv2.imshow("H", binary)
         cv2.imwrite("H.jpg",binary)
         sum_value = sum_binary(binary, 5)
@@ -100,6 +112,10 @@ class image_converter:
         print(turnval)
         cv2.imwrite("TP.jpg",src)
         pub.publish(turnval)
+        #sock,addr=s.accept()
+        #print(sock,addr)
+        t=threading.Thread(target=tcp_link,args=(sock,addr,bh(turnval)))
+        t.start()
 
 
 def doit():
@@ -112,4 +128,8 @@ def doit():
 
 
 if __name__ == "__main__":
+    sock,addr=s.accept()
+    #print(sock,addr)
+    #t=threading.Thread(target=tcp_link,args=(sock,addr))
+    #t.start()
     doit()
