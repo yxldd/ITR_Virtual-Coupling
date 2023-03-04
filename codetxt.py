@@ -20,7 +20,8 @@ class MinimalSubscriber(Node):
 
     def listener_callback(self, msg):
         #self.get_logger().info('I heard: "%d"' % msg.num)   
-        print(msg.markers[0].pose.position.x) 
+        print(msg.markers[0].pose.position.x)
+
         print("!")
 
 
@@ -100,8 +101,8 @@ def sum_binary(binary, cnt):
     return sum_value
 
 
-class image_converter:
-    while(video.isOpened()):
+def image_converter():
+    if(video.isOpened()):
         ret,src=video.read()
         res = cv2.warpPerspective(src, M, (int(300), int(300)))
         [r, g, b] = cv2.split(res)
@@ -122,18 +123,21 @@ class image_converter:
         cv2.imwrite("TP.jpg",src)
         #sock,addr=s.accept()
         #print(sock,addr)
+        
         t=threading.Thread(target=tcp_link,args=(sock,addr,bh(turnval),25))
         t.start()
 
 
 def doit():
     rclpy.init(args=args)
-    minimal_subscriber = MinimalSubscriber()
-    rclpy.spin(minimal_subscriber)
+    while(1):
+        image_converter()
+        minimal_subscriber = MinimalSubscriber()
+    #rclpy.spin(minimal_subscriber)
     minimal_subscriber.destroy_node()
+    image_converter().destroy_node()
     rclpy.shutdown()
-    image_converter()
-    rospy.spin()
+
 
 
 
